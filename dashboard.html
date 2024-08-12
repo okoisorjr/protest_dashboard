@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            html, body, #container {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+        </style>
+        <script src="https://cdn.anychart.com/releases/8.12.1/js/anychart-base.min.js"></script>
+        <script src="https://cdn.anychart.com/releases/8.12.1/js/anychart-map.min.js"></script>
+        <script src="https://cdn.anychart.com/releases/8.12.1/js/anychart-exports.min.js"></script>
+        <script src="https://cdn.anychart.com/releases/8.12.1/js/anychart-ui.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.3.15/proj4.js"></script>
+        <script src="https://cdn.anychart.com/geodata/2.2.0/countries/nigeria/nigeria.js"></script>
+    </head>
+    <body>
+        <div id="container">
+
+            <div class="hidden-container">
+                <div class="tooltip-content">
+                  <h2 id="tooltip-title"></h2>
+                  <p class="important">
+                    Population: <b id="tooltip-population"></b> <br />Governor:
+                    <b id="tooltip-governor"></b> <b id="tooltip-reviews"></b>
+                  </p>
+                  <p id="tooltip-description"></p>
+            </div>
+
+        </div>
+        <script>
+            var zoomedStateData;
+            var range = [0, 1, 2, 3, 4];
+            var dataset = [];
+
+            // define data groups
+            var dataGroup1 = [];
+            var dataGroup2 = [];
+            var dataGroup3 = [];
+            var dataGroup4 = [];
+            var dataGroup5 = [];
+
+            var container = document.getElementById('container');
+            var hiddenContainer = document.getElementsByClassName("hidden-container");
+
+            // helper function - puts data about the sigh to the div
+            var showDetailsData = function (data) {
+                if (data) {
+                document.getElementById('tooltip-title').innerText = data.state.name;
+                document.getElementById('tooltip-population').innerText = data.population.toLocaleString();
+                document.getElementById('tooltip-governor').innerText =
+                    data.governor;
+                /* document.getElementById('tooltip-reviews').innerText =
+                    itemData.reviews;
+                document.getElementById('tooltip-description').innerText =
+                    itemData.desc; */
+                }
+            };
+
+
+            anychart.onDocumentReady(async function () {
+
+                fetch("http://127.0.0.1:5000")
+                .then(async (res) => {
+                    let result = await res.json();
+                    dataset = result.data;
+                    console.log(dataset);
+
+                    dataset.forEach(data => {
+                        if(data.value === range[0]) {
+                            dataGroup1.push(data);
+                        } else if(data.value === range[1]) {
+                            dataGroup2.push(data);
+                        } else if(data.value === range[2]) {
+                            dataGroup3.push(data);
+                        } else if(data.value === range[3]) {
+                            dataGroup4.push(data);
+                        } else if(data.value >= range[4]) {
+                            dataGroup5.push(data);
+                        }
+                    });
+
+                    // Creates map.
+                    var map = anychart.map();
+                    map.scale().gap(0.05);
+                    
+                    map.geoData(anychart.maps.nigeria);
+                    var series = map.choropleth(dataset);
+                    console.log(series);
+                    series.labels().enabled(true).padding(1).format('{%name}');
+                    series.colorScale(anychart.scales.ordinalColor([
+                        {less: 0},
+                        {from:1, to:1 },
+                        {from:2, to:2 },
+                        {from:3, to:3 },
+                        {greater:4 }]
+                    ));
+                    var cr = map.colorRange(true);
+                    series.hovered().fill('#addd8e');
+
+                    map.zoom(1);
+				
+                    // zoom to a region
+                    map.listen('pointDblClick', function(e) {
+                        let id = e.point.getFeatureProp()["id"];
+                            fetch(`http://127.0.0.1:5000/data/${id}`)
+                            .then(async (res) => {
+                                console.log(e);
+                                zoomedStateData = await res.json();
+                                showDetailsData(zoomedStateData.data);
+                                map.tooltip().title(false).separator(false);
+                                map.tooltip().onTitleChanged(function () {
+                                    this.contentElement.innerHTML = document.querySelector(
+                                    '.hidden-container'
+                                    ).innerHTML;
+                                });
+                            })
+                            .catch((error) => {
+                                console.log(error);
+                            })
+                            map.zoomToFeature(e.point.get('id'));
+                        
+                        });
+                    
+                    map.title('Create a Map');
+                    map.container('container');
+                    map.draw();
+                })
+                .catch((error) => {
+                    console.log(error);
+                })
+            });
+        </script>
+    </body>
+</html>
+<div id="anychart-embed-modules--samples-anychart.map" class="anychart-embed anychart-embed-modules--samples-anychart.map">
